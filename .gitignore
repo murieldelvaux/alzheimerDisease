@@ -1,6 +1,8 @@
 # Pasta do Ambiente Virtual do Python
 # IGNORA A SUA VENV!
-venv_alzheimer/
+bin/
+include/
+lib/
 
 # Arquivos de cache e compilados do Python
 __pycache__/
