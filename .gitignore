@@ -1,0 +1,21 @@
+# Pasta do Ambiente Virtual do Python
+# IGNORA A SUA VENV!
+venv_alzheimer/
+
+# Arquivos de cache e compilados do Python
+__pycache__/
+*.pyc
+
+# Arquivos de sistema do macOS
+.DS_Store
+
+# --- DADOS BRUTOS (MUITO IMPORTANTE!) ---
+# Ignora TODOS os arquivos de dados CSV
+*.csv
+
+# Ignora TODOS os arquivos de imagem NIfTI
+*.nii
+*.nii.gz
+
+# Pastas de IDEs (ex: se você usar VS Code)
+.vscode/
