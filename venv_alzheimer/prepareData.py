@@ -1,16 +1,43 @@
+import argparse
+import sys
+from pathlib import Path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# --- CAMINHO DO ARQUIVO ---
-csv_path = "/Users/murieldaher/Desktop/mestrado/alzheimerDisease/venv_alzheimer/share/dataset/ADNIMERGE_11Nov2025.csv"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
+from alzheimer import config
+from alzheimer.data_io import load_merge_table
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Exploratory analysis pipeline for the ADNIMERGE dataset.",
+    )
+    parser.add_argument(
+        "--csv-path",
+        help=(
+            "Override the ADNIMERGE CSV path."
+            f" Defaults to {config.DEFAULT_MERGE_CSV} or the value set in"
+            f" {config.MERGE_CSV_ENV_VAR}."
+        ),
+    )
+    return parser.parse_args()
+
+args = parse_args()
+csv_path = config.get_merge_csv_path(args.csv_path)
 
 print("--- Iniciando a Análise de Progressão por Idade e Gênero ---")
 
 try:
-    print("Lendo o arquivo CSV...")
-    df = pd.read_csv(csv_path, low_memory=False)
-    print("Arquivo CSV lido com sucesso!")
+    print(f"Lendo o arquivo CSV em {csv_path}...")
+    df = load_merge_table(csv_path)
+    print("Arquivo CSV lido e pré-processado com sucesso!")
 
     # --- 1. "CAÇANDO" OS CONVERSORES ---
     
@@ -215,6 +242,10 @@ try:
 
 except FileNotFoundError:
     print(f"ERRO: Arquivo não encontrado em: {csv_path}")
+    print(
+        "Use --csv-path ou a variável de ambiente "
+        f"{config.MERGE_CSV_ENV_VAR} para informar o local correto."
+    )
 except KeyError as e:
     print(f"ERRO: A coluna {e} não foi encontrada. Verifique o nome da coluna no CSV.")
 except Exception as e:
