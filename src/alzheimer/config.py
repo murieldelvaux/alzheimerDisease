@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
+
+DEFAULT_DATA_DIR = PROJECT_ROOT / "venv_alzheimer" / "share"/ "dataset"
 DEFAULT_DATA_FILENAME = "ADNIMERGE_11Nov2025.csv"
 DEFAULT_MERGE_CSV = DEFAULT_DATA_DIR / DEFAULT_DATA_FILENAME
 MERGE_CSV_ENV_VAR = "ALZHEIMER_MERGE_CSV"
