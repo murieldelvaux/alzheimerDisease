@@ -240,6 +240,146 @@ try:
         
         plt.show()
 
+    # --- Tempo de Progressão Separado por Sexo ---
+    print("\nGerando gráfico de Tempo de Progressão por Sexo...")
+
+    # Criar dataframes "arrumados" (tidy), agora incluindo a coluna GÊNERO
+    # O truque: cn_first_dementia_visit já tem a coluna 'PTGENDER' porque usamos .first()
+    
+    cn_plot_df = pd.DataFrame({
+        'Tempo (Anos)': cn_progression_times / 12,
+        'Grupo': 'CN -> Dementia',
+        'Gênero': cn_first_dementia_visit['PTGENDER'] # <--- Adicionamos o Gênero aqui!
+    })
+    
+    mci_plot_df = pd.DataFrame({
+        'Tempo (Anos)': mci_progression_times / 12,
+        'Grupo': 'MCI -> Dementia',
+        'Gênero': mci_first_dementia_visit['PTGENDER'] # <--- E aqui!
+    })
+    
+    # Combinar os dois dataframes em um só
+    plot_df = pd.concat([cn_plot_df, mci_plot_df])
+
+    if plot_df.empty:
+        print("\nNenhum dado de progressão para plotar.")
+    else:
+        sns.set_theme(style="whitegrid")
+        plt.figure(figsize=(12, 8))
+        
+        # 1. Desenha o Boxplot dividido por Gênero
+        sns.boxplot(
+            data=plot_df, 
+            x='Grupo', 
+            y='Tempo (Anos)', 
+            hue='Gênero',       # <--- A MÁGICA: Separa as caixas por sexo
+            palette='pastel'
+        )
+        
+        # 2. Sobrepõe os pontos (com dodge=True para eles não ficarem misturados)
+        sns.swarmplot(
+            data=plot_df, 
+            x='Grupo', 
+            y='Tempo (Anos)',
+            hue='Gênero',       # Precisamos dizer o hue aqui também
+            dodge=True,         # <--- Importante: Separa os pontos "Male" dos "Female"
+            color=".25",
+            size=3.0,
+            alpha=0.6,
+            legend=False        # Esconde a legenda extra dos pontos
+        )
+        
+        plt.title('Tempo de Progressão para Alzheimer (Separado por Sexo)', fontsize=16)
+        plt.xlabel('Grupo de Progressão', fontsize=12)
+        plt.ylabel('Anos desde a Baseline até o Diagnóstico', fontsize=12)
+        plt.legend(title='Gênero') # Garante que a legenda apareça bonitinha
+        
+        plt.show()
+
+    # Em pacientes que progridem para o alzheimer, o que declina primeiro?
+    #  O volume do hipocampo ou a pontuação do teste MSE?  
+
+    print("\n--- Analisando a Velocidade de Declínio (Normalizada) ---")
+
+    # 1. Pegar histórico dos conversores
+    history_df = df[df['PTID'].isin(mci_to_dementia_converters_ids)].copy()
+
+    # 2. Converter para numérico (forçando erros a virar NaN)
+    cols_to_numeric = ['Hippocampus', 'MMSE', 'Month']
+    for col in cols_to_numeric:
+        history_df[col] = pd.to_numeric(history_df[col], errors='coerce')
+
+    # 3. Criar Tabela de Baseline (CORREÇÃO DE ROBUSTEZ)
+    # Pegamos apenas as linhas 'bl'
+    bl_data = history_df[history_df['VISCODE'] == 'bl'][['PTID', 'Hippocampus', 'MMSE']]
+    
+    # Renomeamos explicitamente
+    bl_data = bl_data.rename(columns={
+        'Hippocampus': 'Hippo_BASELINE', 
+        'MMSE': 'MMSE_BASELINE'
+    })
+
+    # 4. Juntar (Merge) de volta no histórico principal
+    # Usamos 'left' join para garantir que não perdemos ninguém
+    merged_df = pd.merge(history_df, bl_data, on='PTID', how='left')
+    
+    # Verificação de depuração (caso dê erro de novo, saberemos por quê)
+    if 'MMSE_BASELINE' not in merged_df.columns:
+        print("ERRO CRÍTICO: Coluna de baseline não foi criada corretamente.")
+        print("Colunas disponíveis:", merged_df.columns)
+    
+    # 5. CALCULAR A MUDANÇA PERCENTUAL
+    # Agora usamos os nomes novos e garantidos: 'Hippo_BASELINE' e 'MMSE_BASELINE'
+    merged_df['Mudança Hipocampo'] = (merged_df['Hippocampus'] - merged_df['Hippo_BASELINE']) / merged_df['Hippo_BASELINE']
+    merged_df['Mudança MMSE'] = (merged_df['MMSE'] - merged_df['MMSE_BASELINE']) / merged_df['MMSE_BASELINE']
+
+    # 6. Preparar para plotagem (Melt)
+    plot_data = pd.melt(
+        merged_df, 
+        id_vars=['PTID', 'Month', 'PTGENDER'], 
+        value_vars=['Mudança Hipocampo', 'Mudança MMSE'],
+        var_name='Métrica', 
+        value_name='Mudança Percentual'
+    )
+
+    # --- GRÁFICO 1: Visão Geral ---
+    print("Gerando gráfico geral de declínio...")
+    plt.figure(figsize=(12, 6))
+    sns.lineplot(
+        data=plot_data, 
+        x='Month', 
+        y='Mudança Percentual', 
+        hue='Métrica', 
+        style='Métrica',
+        markers=True, 
+        dashes=False,
+        palette="tab10" # Paleta segura
+    )
+    plt.axhline(0, color='black', linestyle='--', linewidth=0.8)
+    plt.title('Trajetória de Declínio: Hipocampo vs. MMSE (Conversores MCI -> AD)')
+    plt.ylabel('Mudança em relação ao Início (0.0 = 0%, -0.2 = -20%)')
+    plt.xlabel('Meses de Estudo')
+    plt.xlim(0, 48)
+    plt.show()
+
+    # --- GRÁFICO 2: Separado por Sexo ---
+    print("Gerando gráfico separado por sexo...")
+    g = sns.relplot(
+        data=plot_data, 
+        x='Month', 
+        y='Mudança Percentual', 
+        hue='Métrica', 
+        col='PTGENDER',
+        kind='line',
+        markers=True,
+        palette="tab10"
+    )
+    g.map(plt.axhline, y=0, color="black", linestyle="--", linewidth=0.8)
+    g.set_axis_labels("Meses de Estudo", "Mudança Percentual (Declínio)")
+    g.fig.suptitle('Comparação de Declínio por Sexo', y=1.03)
+    plt.xlim(0, 48)
+    plt.show() 
+
 except FileNotFoundError:
     print(f"ERRO: Arquivo não encontrado em: {csv_path}")
     print(
